@@ -1,5 +1,5 @@
 ---
-title: "Neurocognitive mechanisms of population-level virality" 
+title: "A neural model of information virality" 
 author: "Scholz, C., Baek, E.C., O'Donnell M.B., Kim, H.S., Cappella, J.N., Falk, E.B."
 date: "January 9, 2017"
 output: 
@@ -11,7 +11,7 @@ output:
 
 #Citation
 
-Scholz, C., Baek, E.C., O'Donnell M.B., Kim, H.S., Cappella, J.N., Falk, E.B. (in press). Neurocognitive mechanisms of population-level virality. PNAS
+Scholz, C., Baek, E.C., O'Donnell M.B., Kim, H.S., Cappella, J.N., Falk, E.B. (in press). A neural model of information virality. PNAS
 
 Keywords: Information sharing, virality, fMRI, population-level behavior, psychological mechanisms
 
