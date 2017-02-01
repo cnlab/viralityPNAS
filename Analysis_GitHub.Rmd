@@ -1,0 +1,683 @@
+---
+title: "Neurocognitive mechanisms of population-level virality" 
+author: "Scholz, C., Baek, E.C., O'Donnell M.B., Kim, H.S., Cappella, J.N., Falk, E.B."
+date: "January 9, 2017"
+output: 
+  html_document:
+    toc: true
+    theme: paper
+    highlight: textmate
+---
+
+#Citation
+
+Scholz, C., Baek, E.C., O'Donnell M.B., Kim, H.S., Cappella, J.N., Falk, E.B. (in press). Neurocognitive mechanisms of population-level virality. PNAS
+
+Keywords: Information sharing, virality, fMRI, population-level behavior, psychological mechanisms
+
+# Load R packages
+```{r,echo=FALSE}
+library('lavaan')
+library('mediation')
+library('lmerTest')
+library('pbkrtest')
+library('car')
+```
+
+# Data
+
+Dataframes necessary to produce the results reported in the paper are read in below
+
+```{r,echo=FALSE}
+# Article data
+articles<-read.csv('data/articles.csv',stringsAsFactors = F)
+
+# Create ranked population-level retransmission variable
+articles$rank_ret=rank(articles$retransmit_total)
+
+# Study 1 data
+## Demographics
+demo_study1<-read.csv('data/demographics_study1.csv',stringsAsFactors = F)
+
+## Neural Data
+
+### Ranked data
+s1_read<-read.csv('data/study1_red_to_read.csv')
+
+### Unranked data
+s1_read_raw<-read.csv('data/study1_red_to_read_raw.csv')
+
+### Merge Study 1 neural data with article data
+s1_read<-merge(s1_read,articles)
+s1_read_raw<-merge(s1_read_raw,articles)
+
+# Study 2 data
+
+## Demographics
+demo_study2<-read.csv('data/demographics_study2.csv',stringsAsFactors = F)
+
+## Neural Data
+### Ranked
+s2_abstract<-read.csv('data/study2_red_to_abstract.csv',stringsAsFactors = F)
+
+### Unranked
+s2_abstract_raw<-read.csv('data/study2_red_to_abstract_raw.csv',stringsAsFactors = F)
+
+### Combine neural and article data
+s2_abstract<-merge(s2_abstract,articles)
+s2_abstract_raw<-merge(s2_abstract_raw,articles)
+
+### Dataset for analysis of other task conditions
+# study 1 data
+s1_broad<-read.csv('data/study1_red_to_broad.csv',stringsAsFactors = F)
+s1_narrow<-read.csv('data/study1_red_to_narrow.csv',stringsAsFactors = F)
+
+s1_narrow<-merge(s1_narrow,articles)
+s1_broad<-merge(s1_broad,articles)
+```
+
+# Descriptives
+
+* Study 1 participants: 
+  + N =`r length(unique(demo_study1$pID))`
+  + `r sum(demo_study1$gender==2)` females
+  + Age: M = `r mean(demo_study1$age)`, SD = `r sd(demo_study1$age)`, Range = `r min(demo_study1$age)` to `r max(demo_study1$age)`
+* Study 2 participants: 
+  + N =`r length(unique(demo_study2$pID))`
+  + `r sum(demo_study2$gender==2)` females
+  + Age: M = `r mean(demo_study2$age)`, SD = `r sd(demo_study2$age)`, Range = `r min(demo_study2$age)` to `r max(demo_study2$age)` 
+* Number of articles Study 1: `r length(unique(articles$art_id))`
+* Number of articles Study 2: `r sum(!is.na(s2_abstract$self))`
+* Retransmission counts: 
+  + Total number: `r sum(articles$retransmit_total)`
+  + Mean: `r mean(articles$retransmit_total)`
+  + SD: `r sd(articles$retransmit_total)`
+  + Range: `r min(articles$retransmit_total)` to `r max(articles$retransmit_total)`
+- Article word count (headlines and abstracts): 
+  + Mean: `r mean(articles$total_wc)`
+  + SD: `r sd(articles$total_wc)`
+  + Range: `r min(articles$total_wc)` to `r max(articles$total_wc)`
+- Study 1 Article Task article presentation times:
+  + `r min(articles$pres_time)` sec: N = `r sum(articles$pres_time==8)`
+  + `r unique(articles$pres_time)[1]` sec: N = `r sum(articles$pres_time==10)`
+  + `r max(articles$pres_time)` sec: N = `r sum(articles$pres_time==12)`
+
+# Results
+
+## Figure 1
+```{r}
+# Path model
+mod<-'rank_ret~c*value+mentalizing_reduced+self
+value~a*mentalizing_reduced+b*self
+indirect_mentalizing_reduced := a*c
+indirect_self := b*c
+'
+```
+
+Study 1 Path model 
+```{r}
+mod.fit<-sem(mod,data=s1_read)
+summary(mod.fit,rsquare=T, fit.measures=T,standardized=T)
+```
+
+Study 2 Path model
+```{r}
+mod.fit<-sem(mod,data=s2_abstract)
+summary(mod.fit,rsquare=T, fit.measures=T, standardized=T)
+```
+
+Indirect effects (with bias-corrected confidence intervals)
+
+Study 1 - Social cognition
+```{r}
+out.fit<-lm(rank_ret~value+mentalizing_reduced+self, data=s1_read)
+med.fit<-lm(value~mentalizing_reduced+self, data=s1_read)
+
+med.out <- mediate(med.fit, out.fit, treat = "mentalizing_reduced", covariate="self", mediator = "value", sims = 1000, boot=T, boot.ci.type= 'bca')
+summary(med.out)
+```
+
+Study 1 Self-related processing
+```{r}
+med2.out <- mediate(med.fit, out.fit, treat = "self", mediator = "value", covariate='mentalizing_reduced', sims = 1000, boot=T, boot.ci.type= 'bca')
+summary(med2.out)
+```
+
+Study 2 - Social Cognition
+````{r}
+out.fit<-lm(rank_ret~value+mentalizing_reduced+self, data=s2_abstract)
+med.fit<-lm(value~mentalizing_reduced+self, data=s2_abstract)
+
+# Estimate the indirect effect, specifying mentalizing as the independent variable and self as a covariate
+med.out <- mediate(med.fit, out.fit, treat = "mentalizing_reduced", covariate="self", mediator = "value", sims = 1000, boot=T, boot.ci.type= 'bca')
+summary(med.out)
+```
+
+Study 2 - Self-related processing
+```{r}
+med2.out <- mediate(med.fit, out.fit, treat = "self", mediator = "value", covariate='mentalizing_reduced', sims = 1000, boot=T, boot.ci.type= 'bca')
+summary(med2.out)
+```
+
+# Supporting Information
+
+## Figures and Tables
+
+### Figure S2 (unranked variables)
+
+Log-transform retransmission variable to normality
+
+```{r}
+s1_read_raw$retransmit_log<-log(s1_read_raw$retransmit_total)
+s2_abstract_raw$retransmit_log<-log(s2_abstract_raw$retransmit_total)
+```
+
+Path Model
+```{r}
+mod<-'retransmit_log~c*value+mentalizing_reduced+self
+value~a*mentalizing_reduced+b*self
+indirect_mentalizing_reduced := a*c
+indirect_self := b*c
+'
+```
+
+Study 1
+```{r}
+mod.fit<-sem(mod,data=s1_read_raw)
+summary(mod.fit,rsquare=T, standardized=T)
+```
+
+Study 2
+```{r}
+mod.fit<-sem(mod,data=s2_abstract_raw)
+summary(mod.fit,rsquare=T, standardized=T)
+```
+
+Indirect Effects - Bias corrected confidence intervals
+
+Study 1 - Social cognition
+```{r}
+out.fit<-lm(retransmit_log~value+mentalizing_reduced+self, data=s1_read_raw)
+med.fit<-lm(value~mentalizing_reduced+self, data=s1_read_raw)
+
+med.out <- mediate(med.fit, out.fit, treat = "mentalizing_reduced", covariate="self", mediator = "value", sims = 1000, boot=T, boot.ci.type= 'bca')
+summary(med.out)
+```
+
+Study 1 - Self-Related Processing
+```{r}
+med2.out <- mediate(med.fit, out.fit, treat = "self", mediator = "value", covariate='mentalizing_reduced', sims = 1000, boot=T, boot.ci.type= 'bca')
+summary(med2.out)
+```
+
+Study 2 - Social cognition
+```{r}
+out.fit<-lm(retransmit_log~value+mentalizing_reduced+self, data=s2_abstract_raw)
+med.fit<-lm(value~mentalizing_reduced+self, data=s2_abstract_raw)
+
+med.out <- mediate(med.fit, out.fit, treat = "mentalizing_reduced", covariate="self", mediator = "value", sims = 1000, boot=T, boot.ci.type= 'bca')
+summary(med.out)
+```
+
+Study 2 - Self-related processing
+```{r}
+med2.out <- mediate(med.fit, out.fit, treat = "self", mediator = "value", covariate='mentalizing_reduced', sims = 1000, boot=T, boot.ci.type= 'bca')
+summary(med2.out)
+```
+
+# Figure S4
+
+Effect of intention on retransmission
+
+```{r}
+mod<-'rank_ret~mean_share_rating_rank'
+```
+
+Study 1
+```{r}
+mod.fit<-sem(mod,data=s1_read)
+summary(mod.fit,rsquare=T, standardized=T)
+```
+
+Study 2
+```{r}
+mod.fit<-sem(mod,data=s2_abstract)
+summary(mod.fit,rsquare=T, standardized=T)
+```
+
+Value-based virality controlling for intention
+
+```{r}
+mod<-'rank_ret~c*value+mentalizing_reduced+self+mean_share_rating_rank
+value~a*mentalizing_reduced+b*self
+indirect_mentalizing_reduced := a*c
+indirect_self := b*c
+'
+```
+
+Study 1
+```{r}
+mod.fit<-sem(mod,data=s1_read)
+summary(mod.fit,rsquare=T, standardized=T)
+```
+
+Study 2
+```{r}
+mod.fit<-sem(mod,data=s2_abstract)
+summary(mod.fit,rsquare=T, standardized=T)
+```
+
+## Table S2
+
+Study 1
+```{r}
+cor.test(s1_read$self,s1_read$mentalizing_reduced)
+cor.test(s1_read$self,s1_read$value)
+cor.test(s1_read$self,s1_read$rank_ret)
+cor.test(s1_read$self,s1_read$mean_share_rating_rank)
+
+cor.test(s1_read$mentalizing_reduced,s1_read$value)
+cor.test(s1_read$mentalizing_reduced,s1_read$rank_ret)
+cor.test(s1_read$mentalizing_reduced,s1_read$mean_share_rating_rank)
+
+cor.test(s1_read$value,s1_read$rank_ret)
+cor.test(s1_read$value,s1_read$mean_share_rating_rank)
+
+cor.test(s1_read$rank_ret,s1_read$mean_share_rating_rank)
+```
+
+Study 2
+```{r}
+cor.test(s2_abstract$self,s2_abstract$mentalizing_reduced)
+cor.test(s2_abstract$self,s2_abstract$value)
+cor.test(s2_abstract$self,s2_abstract$rank_ret)
+cor.test(s2_abstract$self,s2_abstract$mean_share_rating_rank)
+
+cor.test(s2_abstract$mentalizing_reduced,s2_abstract$value)
+cor.test(s2_abstract$mentalizing_reduced,s2_abstract$rank_ret)
+cor.test(s2_abstract$mentalizing_reduced,s2_abstract$mean_share_rating_rank)
+
+cor.test(s2_abstract$value,s2_abstract$rank_ret)
+cor.test(s2_abstract$value,s2_abstract$mean_share_rating_rank)
+
+cor.test(s2_abstract$rank_ret,s2_abstract$mean_share_rating_rank)
+```
+
+## Table S3
+
+Study 1
+```{r}
+cor.test(s1_read_raw$self,s1_read_raw$mentalizing_reduced)
+cor.test(s1_read_raw$self,s1_read_raw$value)
+cor.test(s1_read_raw$self,s1_read_raw$retransmit_log)
+
+cor.test(s1_read_raw$mentalizing_reduced,s1_read_raw$value)
+cor.test(s1_read_raw$mentalizing_reduced,s1_read_raw$retransmit_log)
+
+cor.test(s1_read_raw$value,s1_read_raw$retransmit_log)
+```
+
+Study 2
+```{r}
+cor.test(s2_abstract_raw$self,s2_abstract_raw$mentalizing_reduced)
+cor.test(s2_abstract_raw$self,s2_abstract_raw$value)
+cor.test(s2_abstract_raw$self,s2_abstract_raw$retransmit_log)
+
+cor.test(s2_abstract_raw$mentalizing_reduced,s2_abstract_raw$value)
+cor.test(s2_abstract_raw$mentalizing_reduced,s2_abstract_raw$retransmit_log)
+
+cor.test(s2_abstract_raw$value,s2_abstract_raw$retransmit_log)
+```
+
+## Table S4
+
+(A) Valuation mediates
+
+```{r}
+value_med<-'rank_ret~c*value
+value~a*self+b*mentalizing_reduced
+indirect_mentalizing := b*c
+indirect_self := a*c'
+```
+
+Study 1
+```{r}
+value_med.fit<-sem(value_med,data=s1_read)
+summary(value_med.fit,rsquare=T, standardized=T,fit.measures=T)
+```
+
+Study 2
+```{r}
+value_med.fit<-sem(value_med,data=s2_abstract)
+summary(value_med.fit,rsquare=T, standardized=T,fit.measures=T)
+```
+
+(B) Self-related processing mediates
+
+```{r}
+self_med<-'rank_ret~c*self
+self~a*value+b*mentalizing_reduced
+indirect_mentalizing := b*c
+indirect_value := a*c'
+```
+
+Study 1
+```{r}
+self_med.fit<-sem(self_med,data=s1_read)
+summary(self_med.fit,rsquare=T, standardized=T,fit.measures=T)
+```
+
+Study 2
+```{r}
+self_med.fit<-sem(self_med,data=s2_abstract)
+summary(self_med.fit,rsquare=T, standardized=T,fit.measures=T)
+```
+
+(C) Social cognition mediates
+```{r}
+social_med<-'rank_ret~c*mentalizing_reduced
+mentalizing_reduced~a*self+b*value
+indirect_value := b*c
+indirect_self := a*c'
+```
+
+Study 1
+```{r}
+social_med.fit<-sem(social_med,data=s1_read)
+summary(social_med.fit,rsquare=T, standardized=T,fit.measures=T)
+```
+
+Study 2
+```{r}
+social_med.fit<-sem(social_med,data=s2_abstract)
+summary(social_med.fit,rsquare=T, standardized=T,fit.measures=T)
+```
+
+# Analysis of other article task conditions
+
+Narrowcasting
+
+```{r}
+cor.test(s1_narrow$value,s1_narrow$rank_ret)
+```
+
+Broadcasting
+
+```{r}
+cor.test(s1_broad$value,s1_broad$rank_ret)
+```
+
+Variances of value-related processing in read, narrow-, and broadcasting conditions
+
+* Reading condition: s2 = `r var(s1_read$value)`
+* Narrocasting condition: s2 = `r var(s1_narrow$value)` 
+* Broadcasting condition: s2 = `r var(s1_broad$value)`
+
+## Analysis of Article Characteristics
+
+Rank article characteristics variables (except dichotomous variables)
+
+```{r}
+# Study 1
+s1_read$useful_rank<-rank(s1_read$useful)
+s1_read$positivity_word_rank<-rank(s1_read$positivity_word)
+s1_read$positivity_sv_rank<-rank(s1_read$positivity_sv)
+s1_read$controversial_rank<-rank(s1_read$controversial)
+s1_read$novelty_rank<-rank(s1_read$novelty)
+s1_read$aroused_rank<-rank(s1_read$aroused)
+s1_read$ln_emotionality_word_rank<-rank(s1_read$ln_emotionality_word)
+
+# Study 2
+s2_abstract$useful_rank<-rank(s2_abstract$useful)
+s2_abstract$positivity_word_rank<-rank(s2_abstract$positivity_word)
+s2_abstract$positivity_sv_rank<-rank(s2_abstract$positivity_sv)
+s2_abstract$controversial_rank<-rank(s2_abstract$controversial)
+s2_abstract$novelty_rank<-rank(s2_abstract$novelty)
+s2_abstract$aroused_rank<-rank(s2_abstract$aroused)
+s2_abstract$ln_emotionality_word_rank<-rank(s2_abstract$ln_emotionality_word)
+```
+
+Value-based virality controlling for individual article characteristics
+
+```{r}
+# Useful
+mod<-'rank_ret~c*value+useful_rank
+value~a*mentalizing_reduced+b*self
+indirect_mentalizing_reduced := a*c
+indirect_self := b*c
+'
+## Study 1
+mod.fit<-sem(mod,data=s1_read)
+summary(mod.fit,rsquare=T, fit.measures=T,standardized=T)
+
+## Study 2
+mod.fit<-sem(mod,data=s2_abstract)
+summary(mod.fit,rsquare=T, fit.measures=T,standardized=T)
+
+# efficacy
+mod<-'rank_ret~c*value+efficacy
+value~a*mentalizing_reduced+b*self
+indirect_mentalizing_reduced := a*c
+indirect_self := b*c
+'
+## Study 1
+mod.fit<-sem(mod,data=s1_read)
+summary(mod.fit,rsquare=T, fit.measures=T,standardized=T)
+
+## Study 2
+mod.fit<-sem(mod,data=s2_abstract)
+summary(mod.fit,rsquare=T, fit.measures=T,standardized=T)
+
+# Disease
+mod<-'rank_ret~c*value+disease
+value~a*mentalizing_reduced+b*self
+indirect_mentalizing_reduced := a*c
+indirect_self := b*c
+'
+## Study 1
+mod.fit<-sem(mod,data=s1_read)
+summary(mod.fit,rsquare=T, fit.measures=T,standardized=T)
+
+## Study 2
+mod.fit<-sem(mod,data=s2_abstract)
+summary(mod.fit,rsquare=T, fit.measures=T,standardized=T)
+
+# positivity_sv
+mod<-'rank_ret~c*value+positivity_sv_rank
+value~a*mentalizing_reduced+b*self
+indirect_mentalizing_reduced := a*c
+indirect_self := b*c
+'
+## Study 1
+mod.fit<-sem(mod,data=s1_read)
+summary(mod.fit,rsquare=T, fit.measures=T,standardized=T)
+
+## Study 2
+mod.fit<-sem(mod,data=s2_abstract)
+summary(mod.fit,rsquare=T, fit.measures=T,standardized=T)
+
+# Positivity_word
+mod<-'rank_ret~c*value+positivity_word_rank
+value~a*mentalizing_reduced+b*self
+indirect_mentalizing_reduced := a*c
+indirect_self := b*c
+'
+## Study 1
+mod.fit<-sem(mod,data=s1_read)
+summary(mod.fit,rsquare=T, fit.measures=T,standardized=T)
+
+## Study 2
+mod.fit<-sem(mod,data=s2_abstract)
+summary(mod.fit,rsquare=T, fit.measures=T,standardized=T)
+
+# aroused
+mod<-'rank_ret~c*value+aroused_rank
+value~a*mentalizing_reduced+b*self
+indirect_mentalizing_reduced := a*c
+indirect_self := b*c
+'
+## Study 1
+mod.fit<-sem(mod,data=s1_read)
+summary(mod.fit,rsquare=T, fit.measures=T,standardized=T)
+
+## Study 2
+mod.fit<-sem(mod,data=s2_abstract)
+summary(mod.fit,rsquare=T, fit.measures=T,standardized=T)
+
+# novelty
+mod<-'rank_ret~c*value+novelty_rank
+value~a*mentalizing_reduced+b*self
+indirect_mentalizing_reduced := a*c
+indirect_self := b*c
+'
+## Study 1
+mod.fit<-sem(mod,data=s1_read)
+summary(mod.fit,rsquare=T, fit.measures=T,standardized=T)
+
+## Study 2
+mod.fit<-sem(mod,data=s2_abstract)
+summary(mod.fit,rsquare=T, fit.measures=T,standardized=T)
+
+# ln_emotionality_word
+mod<-'rank_ret~c*value+ln_emotionality_word_rank
+value~a*mentalizing_reduced+b*self
+indirect_mentalizing_reduced := a*c
+indirect_self := b*c
+'
+## Study 1
+mod.fit<-sem(mod,data=s1_read)
+summary(mod.fit,rsquare=T, fit.measures=T,standardized=T)
+
+## Study 2
+mod.fit<-sem(mod,data=s2_abstract)
+summary(mod.fit,rsquare=T, fit.measures=T,standardized=T)
+
+# controversial
+mod<-'rank_ret~c*value+controversial_rank
+value~a*mentalizing_reduced+b*self
+indirect_mentalizing_reduced := a*c
+indirect_self := b*c
+'
+## Study 1
+mod.fit<-sem(mod,data=s1_read)
+summary(mod.fit,rsquare=T, fit.measures=T,standardized=T)
+
+## Study 2
+mod.fit<-sem(mod,data=s2_abstract)
+summary(mod.fit,rsquare=T, fit.measures=T,standardized=T)
+```
+
+Relationships between individual article characteristics, self-related and social-cognition
+
+Self-related processing - Study 1
+```{r}
+cor.test(s1_read$positivity_sv_rank,s1_read$self)
+
+leveneTest(s1_read$self,s1_read$disease)
+t.test(s1_read$self[s1_read$disease==0],s1_read$self[s1_read$disease==1],var.equal = T)
+
+cor.test(s1_read$useful_rank,s1_read$self)
+cor.test(s1_read$positivity_word_rank,s1_read$self)
+cor.test(s1_read$aroused_rank,s1_read$self)
+cor.test(s1_read$novelty_rank,s1_read$self)
+cor.test(s1_read$controversial_rank,s1_read$self)
+cor.test(s1_read$ln_emotionality_word_rank,s1_read$self)
+
+leveneTest(s1_read$efficacy,s1_read$self)
+t.test(s1_read$self[s1_read$efficacy==0],s1_read$self[s1_read$efficacy==1],var.equal = T)
+```
+
+Self-related processing - Study 2
+```{r}
+cor.test(s2_abstract$positivity_sv_rank,s2_abstract$self)
+
+leveneTest(s2_abstract$self,s2_abstract$disease)
+t.test(s2_abstract$self[s2_abstract$disease==0],s2_abstract$self[s2_abstract$disease==1],var.equal = T)
+
+cor.test(s2_abstract$useful_rank,s2_abstract$self)
+cor.test(s2_abstract$positivity_word_rank,s2_abstract$self)
+cor.test(s2_abstract$aroused_rank,s2_abstract$self)
+cor.test(s2_abstract$novelty_rank,s2_abstract$self)
+cor.test(s2_abstract$controversial_rank,s2_abstract$self)
+cor.test(s2_abstract$ln_emotionality_word_rank,s2_abstract$self)
+
+leveneTest(s2_abstract$efficacy,s2_abstract$self)
+t.test(s2_abstract$self[s2_abstract$efficacy==0],s2_abstract$self[s2_abstract$efficacy==1],var.equal = T)
+```
+
+Social Processing - Study 1
+
+```{r}
+cor.test(s1_read$positivity_sv_rank,s1_read$mentalizing_reduced)
+
+leveneTest(s1_read$mentalizing_reduced,s1_read$disease)
+t.test(s1_read$mentalizing_reduced[s1_read$disease==0],s1_read$mentalizing_reduced[s1_read$disease==1],var.equal = T)
+
+cor.test(s1_read$useful_rank,s1_read$mentalizing_reduced)
+cor.test(s1_read$positivity_word_rank,s1_read$mentalizing_reduced)
+cor.test(s1_read$aroused_rank,s1_read$mentalizing_reduced)
+cor.test(s1_read$novelty_rank,s1_read$mentalizing_reduced)
+cor.test(s1_read$controversial_rank,s1_read$mentalizing_reduced)
+cor.test(s1_read$ln_emotionality_word_rank,s1_read$mentalizing_reduced)
+
+leveneTest(s1_read$efficacy,s1_read$mentalizing_reduced)
+t.test(s1_read$mentalizing_reduced[s1_read$efficacy==0],s1_read$mentalizing_reduced[s1_read$efficacy==1],var.equal = F)
+```
+Social Processing - Study 2
+
+```{r}
+cor.test(s2_abstract$positivity_sv_rank,s2_abstract$mentalizing_reduced)
+
+leveneTest(s2_abstract$mentalizing_reduced,s2_abstract$disease)
+t.test(s2_abstract$mentalizing_reduced[s2_abstract$disease==0],s2_abstract$mentalizing_reduced[s2_abstract$disease==1],var.equal = F)
+
+cor.test(s2_abstract$useful_rank,s2_abstract$mentalizing_reduced)
+cor.test(s2_abstract$positivity_word_rank,s2_abstract$mentalizing_reduced)
+cor.test(s2_abstract$aroused_rank,s2_abstract$mentalizing_reduced)
+cor.test(s2_abstract$novelty_rank,s2_abstract$mentalizing_reduced)
+cor.test(s2_abstract$controversial_rank,s2_abstract$mentalizing_reduced)
+cor.test(s2_abstract$ln_emotionality_word_rank,s2_abstract$mentalizing_reduced)
+
+leveneTest(s2_abstract$efficacy,s2_abstract$mentalizing_reduced)
+t.test(s2_abstract$mentalizing_reduced[s2_abstract$efficacy==0],s2_abstract$mentalizing_reduced[s2_abstract$efficacy==1],var.equal = T)
+```
+
+## Relationship between value-related activity and article characteristics 
+
+
+Study 21
+```{r}
+cor.test(s1_read$positivity_sv_rank,s1_read$value)
+
+leveneTest(s1_read$value,s1_read$disease)
+t.test(s1_read$value[s1_read$disease==0],s1_read$value[s1_read$disease==1],var.equal = T)
+
+cor.test(s1_read$useful_rank,s1_read$value)
+cor.test(s1_read$positivity_word_rank,s1_read$value)
+cor.test(s1_read$aroused_rank,s1_read$value)
+cor.test(s1_read$novelty_rank,s1_read$value)
+cor.test(s1_read$controversial_rank,s1_read$value)
+cor.test(s1_read$ln_emotionality_word_rank,s1_read$value)
+
+leveneTest(s1_read$efficacy,s1_read$value)
+t.test(s1_read$value[s1_read$efficacy==0],s1_read$value[s1_read$efficacy==1],var.equal = T)
+```
+
+
+Study 2
+```{r}
+cor.test(s2_abstract$positivity_sv_rank,s2_abstract$value)
+
+leveneTest(s2_abstract$value,s2_abstract$disease)
+t.test(s2_abstract$value[s2_abstract$disease==0],s2_abstract$value[s2_abstract$disease==1],var.equal = T)
+
+cor.test(s2_abstract$useful_rank,s2_abstract$value)
+cor.test(s2_abstract$positivity_word_rank,s2_abstract$value)
+cor.test(s2_abstract$aroused_rank,s2_abstract$value)
+cor.test(s2_abstract$novelty_rank,s2_abstract$value)
+cor.test(s2_abstract$controversial_rank,s2_abstract$value)
+cor.test(s2_abstract$ln_emotionality_word_rank,s2_abstract$value)
+
+leveneTest(s2_abstract$efficacy,s2_abstract$value)
+t.test(s2_abstract$value[s2_abstract$efficacy==0],s2_abstract$value[s2_abstract$efficacy==1],var.equal = T)
+```
