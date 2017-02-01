@@ -1,5 +1,5 @@
 # viralityPNAS
-Data and code for Scholz et. al (2017)
+Data and code for Scholz, C.S., Baek, E.B., O'Donnell, M.B., Kim, H.S., Cappella, J.N.C., Falk, E.B. (in press). A neural model of information virality. Proceedings of the National Academy of Sciences
 
 The paper can be accessed here:
 
