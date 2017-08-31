@@ -1,5 +1,5 @@
 # viralityPNAS
-Data and code for Scholz, C.S., Baek, E.B., O'Donnell, M.B., Kim, H.S., Cappella, J.N.C., Falk, E.B. (in press). A neural model of information virality. Proceedings of the National Academy of Sciences
+Data and code for Scholz, C.S., Baek, E.B., O'Donnell, M.B., Kim, H.S., Cappella, J.N.C., Falk, E.B. (2017). A neural model of valuation and information virality. Proceedings of the National Academy of Sciences. doi:10.1073/pnas.1615259114
 
 The paper can be accessed here:
 
